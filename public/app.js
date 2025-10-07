@@ -1,5 +1,6 @@
 // app.js - client-side logic (expanded for mock 6-digit user IDs, search & friend flow)
 
+// Global per-device/mock state and data
 let appData = {
   user: null,
   contacts: [],
@@ -45,12 +46,49 @@ function initMockData() {
     "300001": { id:"300001", name:"Luis Martinez" },
     "300002": { id:"300002", name:"Emma Rossi" },
   };
-  // Set the current user
-  appData.user = mockUsers["100001"];
+  // Ensure current device has a user; default to "You"
+  ensureCurrentUserFromURLOrStorageOrDefault();
+
   appData.chats = []; // start with no chats
   mockState.friendships.clear();
   mockState.requests = [];
   console.log("Mirror: Mock data initialized");
+}
+
+// Ensure a current user for this device/session
+function getQueryParam(name){
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name);
+  } catch (e) {
+    return null;
+  }
+}
+function ensureCurrentUserFromURLOrStorageOrDefault(){
+  // 1) If URL has ?userId=6-digit and exists in mockUsers, pick it
+  const urlUser = getQueryParam('userId');
+  if (urlUser && /^\d{6}$/.test(urlUser)) {
+    // If this 6-digit user isn't known yet, create a placeholder
+    if (!mockUsers[urlUser]) {
+      mockUsers[urlUser] = { id: urlUser, name: 'Guest ' + urlUser };
+    }
+    appData.user = mockUsers[urlUser];
+    // Persist choice for this device
+    localStorage.setItem('mock_user_id', urlUser);
+    return;
+  }
+
+  // 2) If a previously-started user exists on this device, use it
+  const stored = localStorage.getItem('mock_user_id');
+  if (stored && mockUsers[stored]) {
+    appData.user = mockUsers[stored];
+    return;
+  }
+
+  // 3) Default to "You" (100001). Also create in case it's missing.
+  if (!mockUsers['100001']) mockUsers['100001'] = { id:'100001', name:'You' };
+  appData.user = mockUsers['100001'];
+  localStorage.setItem('mock_user_id', '100001');
 }
 
 // UI: Search user by 6-digit ID (top bar)
@@ -426,14 +464,17 @@ async function init(){
 // Re-use existing behavior for profile loading
 function bindUI() {
   // profile pic change in modal (existing)
-  document.getElementById('profilePicInput').addEventListener('change', onProfilePicChange);
-  document.getElementById('messageInput').addEventListener('keypress', function(e){
+  const profilePicInput = document.getElementById('profilePicInput');
+  if (profilePicInput) profilePicInput.addEventListener('change', onProfilePicChange);
+  const messageInput = document.getElementById('messageInput');
+  if (messageInput) messageInput.addEventListener('keypress', function(e){
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   });
-  document.getElementById('searchInput').addEventListener('input', function(e){
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.addEventListener('input', function(e){
     const query = e.target.value.toLowerCase();
     const items = document.querySelectorAll('.chat-item');
     items.forEach(item => {
@@ -441,6 +482,16 @@ function bindUI() {
       item.style.display = name.includes(query) ? 'flex' : 'none';
     });
   });
+
+  // Wire up extra UI controls for sending and attachments
+  const sendBtn = document.getElementById('sendBtn');
+  if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+
+  // Attach button to toggle attachment dropdown
+  const attachBtn = document.getElementById('attachBtn');
+  if (attachBtn) attachBtn.addEventListener('click', toggleAttachMenu);
+
+  // Global click behavior handled by window.onclick in original; keep it
   window.onclick = function(e) {
     // Close dropdowns if clicking outside
     if (!e.target.closest('#attachBtn') && !e.target.closest('.attach-dropdown') && !e.target.closest('#emojiBtn') && !e.target.closest('.emoji-picker')) {
@@ -450,10 +501,23 @@ function bindUI() {
       if (emojiBox && emojiBox.style.display === 'flex') emojiBox.style.display = 'none';
     }
   };
+
   // Inputs for file attachments
-  document.getElementById('galleryInput').addEventListener('change', (e) => handleSelectedFile(e.target.files[0], true));
-  document.getElementById('fileInput').addEventListener('change', (e) => handleSelectedFile(e.target.files[0], false));
-  document.getElementById('cameraInput').addEventListener('change', (e) => handleSelectedFile(e.target.files[0], true));
+  const galleryInput = document.getElementById('galleryInput');
+  if (galleryInput) galleryInput.addEventListener('change', (e) => handleSelectedFile(e.target.files[0], true));
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) fileInput.addEventListener('change', (e) => handleSelectedFile(e.target.files[0], false));
+  const cameraInput = document.getElementById('cameraInput');
+  if (cameraInput) cameraInput.addEventListener('change', (e) => handleSelectedFile(e.target.files[0], true));
+
+  // Optional: quick-start a chat if none exists (for mock/demo)
+  if (!appData.chats || appData.chats.length === 0) {
+    // create a placeholder chat with first mock user (if available)
+    const other = Object.values(mockUsers).find(u => u.id !== appData.user?.id);
+    if (other) {
+      startChat(other.id);
+    }
+  }
 }
 
 function toggleMenu(){const m=document.getElementById('menuDropdown');m.classList.toggle('active')}
@@ -503,7 +567,7 @@ function loadProfile() {
   document.getElementById('profileName').value = appData.user.name || '';
   document.getElementById('profileAbout').value = appData.user.about || '';
   document.getElementById('profilePhone').value = appData.user.phone || '';
-  const initials = (appData.user.name || '').split(' ').map(n => n[0] || '').join('').toUpperCase() || 'M';
+  const initials = (appData.user.name || '').split(' ').map(n => n[0]).join('').toUpperCase() || 'M';
   document.getElementById('profileInitialsLarge').textContent = initials;
   document.getElementById('sidebarInitials').textContent = initials;
   if (appData.user.avatar) {
