@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mirror - Chat App</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Top: 6-digit User ID search bar and results panel -->
+  <div id="topUserSearch" style="padding:10px 12px;background:#111b21;border-bottom:1px solid #2a3942;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span style="color:#e9edef;font-size:14px;font-weight:500;">Search User by ID (6-digit)</span>
+      <input id="userIdInput" maxlength="6" placeholder="e.g., 200001" style="width:120px;padding:8px 10px;border-radius:6px;border:1px solid #2a3942;background:#1a1f28;color:#e9edef;">
+      <button id="userSearchBtn" class="icon-btn" onclick="searchUserByIdUI()" style="width:46px;height:38px;display:flex;align-items:center;justify-content:center;background:#2a3942;border-radius:8px;border:none;color:#e9edef;"><i class="fas fa-search"></i></button>
+    </div>
+    <div id="userSearchHint" style="margin-left:auto;font-size:12px;color:#8b9aa3;">Current user: You (100001)</div>
+  </div>
+
+  <!-- Panel showing searched user details and Add Friend button -->
+  <div id="foundUserPanel" style="display:none;border-bottom:1px solid #2a3942;background:#1a1f28;padding:10px 12px;gap:12px;align-items:center;">
+    <div id="foundUserAvatar" style="width:36px;height:36px;border-radius:50%;background:#555;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;"></div>
+    <div style="flex:1;display:flex;flex-direction:column;">
+      <span id="foundUserName" style="color:#e9edef;font-weight:600;"></span>
+      <span id="foundUserId" style="color:#8b9aa3;font-size:12px;"></span>
+    </div>
+    <button id="addFriendBtn" class="icon-btn" onclick="sendFriendRequestFromSearch()" style="width:120px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#00a884;border:none;color:white;font-weight:600;"><span style="margin-right:6px;">Add</span><i class="fas fa-user-plus"></i></button>
+  </div>
+
+  <!-- Incoming friend requests from the recipient side (mock) -->
+  <div id="incomingRequestsPanel" style="display:none;padding:10px 12px;border-bottom:1px solid #2a3942;background:#1e232c;">
+    <div style="font-weight:600;margin-bottom:6px;color:#e9edef;">Incoming Friend Requests</div>
+    <div id="incomingRequestsContainer"></div>
+  </div>
+
+  <div class="app-container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="profile-pic" onclick="openProfileModal()" id="sidebarProfilePic">
+          <span id="sidebarInitials">M</span>
+        </div>
+        <div class="header-icons">
+          <button class="icon-btn" onclick="openNewChatModal()"><i class="fas fa-comment"></i></button>
+          <button class="icon-btn" onclick="toggleMenu()"><i class="fas fa-ellipsis-v"></i></button>
+        </div>
+      </div>
+
+      <div class="menu-dropdown" id="menuDropdown">
+        <div class="menu-item" onclick="openProfileModal();toggleMenu()">Profile</div>
+        <div class="menu-item" onclick="openSettingsModal();toggleMenu()">Settings</div>
+        <div class="menu-item" onclick="toggleMenu()">Starred Messages</div>
+        <div class="menu-item" onclick="toggleMenu()">Log Out</div>
+      </div>
+
+      <div class="search-container">
+        <div class="search-box">
+          <i class="fas fa-search" style="color:#8696a0"></i>
+          <input type="text" placeholder="Search or start new chat" id="searchInput">
+        </div>
+      </div>
+
+      <div class="chat-list" id="chatList"></div>
+    </div>
+
+    <div class="chat-main">
+      <div id="emptyState" class="empty-state">
+        <i class="fas fa-comments" style="font-size:120px;color:#374248"></i>
+        <div class="empty-state-text">Mirror</div>
+        <div class="empty-state-subtext">Send and receive messages without keeping your phone online.<br>Use Mirror on up to 4 linked devices and 1 phone at the same time.</div>
+      </div>
+
+      <div id="chatArea" style="display:none;flex-direction:column;height:100%">
+        <div class="chat-header-main">
+          <div class="chat-header-info">
+            <div class="chat-avatar" id="chatHeaderAvatar"><span id="chatHeaderInitials">J</span></div>
+            <div>
+              <div class="chat-name" id="chatHeaderName">John Doe</div>
+              <div class="chat-time" style="font-size:13px;color:#8696a0">online</div>
+            </div>
+          </div>
+          <div class="chat-header-actions">
+            <button class="icon-btn"><i class="fas fa-video"></i></button>
+            <button class="icon-btn"><i class="fas fa-phone"></i></button>
+            <button class="icon-btn"><i class="fas fa-search"></i></button>
+            <button class="icon-btn" onclick="toggleMenu()"><i class="fas fa-ellipsis-v"></i></button>
+          </div>
+        </div>
+
+        <div class="messages-container" id="messagesContainer"></div>
+
+        <div class="input-area" style="position:relative;">
+          <!-- New Attach Button (left of emoji) that opens a small dropdown with Gallery/File/Camera -->
+          <button class="icon-btn" id="attachBtn" onclick="toggleAttachMenu()"><i class="fas fa-upload"></i></button>
+          <div class="attach-dropdown" id="attachDropdown" style="display:none;">
+            <div class="attach-option" onclick="triggerGallery()">Gallery</div>
+            <div class="attach-option" onclick="triggerFile()">File</div>
+            <div class="attach-option" onclick="triggerCamera()">Camera</div>
+          </div>
+
+          <!-- Emoji picker trigger -->
+          <button class="icon-btn" id="emojiBtn" onclick="toggleEmojiPicker()"><i class="far fa-smile"></i></button>
+          <div id="emojiPicker" class="emoji-picker" style="display:none;">
+            <button class="emoji-btn" onclick="insertEmoji('😊')">😊</button>
+            <button class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
+            <button class="emoji-btn" onclick="insertEmoji('😍')">😍</button>
+            <button class="emoji-btn" onclick="insertEmoji('👍')">👍</button>
+            <button class="emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+          </div>
+
+          <button class="icon-btn" onclick="toggleMenu()"><i class="fas fa-paperclip"></i></button> <!-- legacy paperclip, left as-is -->
+          <textarea class="message-input" id="messageInput" placeholder="Type a message" rows="1"></textarea>
+          <button class="send-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+
+          <!-- Hidden file inputs for attachments -->
+          <input type="file" id="galleryInput" accept="image/*" style="display:none" />
+          <input type="file" id="fileInput" accept="*/*" style="display:none" />
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div class="modal" id="profileModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Profile</div>
+        <button class="close-btn" onclick="closeModal('profileModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="profile-edit-section">
+          <div class="profile-pic-large" id="profilePicLarge">
+            <span id="profileInitialsLarge">M</span>
+            <div class="upload-overlay" onclick="document.getElementById('profilePicInput').click()">
+              <i class="fas fa-camera"></i>
+            </div>
+          </div>
+          <input type="file" id="profilePicInput" accept="image/*">
+          <div class="form-group">
+            <label class="form-label">Your Name</label>
+            <input type="text" class="form-input" id="profileName" value="Mirror User">
+          </div>
+          <div class="form-group">
+            <label class="form-label">About</label>
+            <input type="text" class="form-input" id="profileAbout" value="Hey there! I am using Mirror">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-input" id="profilePhone" value="+1 234 567 8900">
+          </div>
+          <button class="save-btn" onclick="saveProfile()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Settings</div>
+        <button class="close-btn" onclick="closeModal('settingsModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-list">
+          <div class="settings-item" onclick="openProfileModal()">
+            <div class="settings-title">Account</div>
+          </div>
+          <div class="settings-item">
+            <div class="settings-title">Chats</div>
+          </div>
+          <div class="settings-item">
+            <div class="settings-title">Notifications</div>
+          </div>
+          <div class="settings-item">
+            <div class="settings-title">Storage and data</div>
+          </div>
+          <div class="settings-item">
+            <div class="settings-title">Privacy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Chat Modal -->
+  <div class="modal" id="newChatModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">New Chat</div>
+        <button class="close-btn" onclick="closeModal('newChatModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="contacts-list" id="contactsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
